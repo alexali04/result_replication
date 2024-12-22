@@ -13,6 +13,31 @@ def L(theta: torch.nn.Parameter, get_grad=False):
     
     return loss
 
+def armijo_goldstein(theta: torch.nn.Parameter, c, eta, grad) -> bool:
+    """
+    direction d = negative gradient
+
+    eta = learning rate
+    """
+
+    theta_not = torch.ones_like(theta)
+
+    theta_not.copy_(theta)
+
+    theta_not -= eta * grad
+
+
+    # check if theta_not theta are diff
+    # theta_not += torch.ones_like(theta_not)
+    pred = L(theta_not)
+    direction_approx = L(theta) + c * eta * ((- grad.T) @ grad)
+    # print(f"L predicted: {pred}")
+    # print(f"L direction approx: {direction_approx}")
+    # print((pred <= direction_approx).item())
+    return (pred <= direction_approx).item()
+    
+
+
 theta_0 = torch.Tensor([[0], [0]])
 theta_1 = torch.Tensor([[0], [0]])
 theta_0.requires_grad = True
@@ -26,6 +51,9 @@ input_output_values_1 = []
 
 theta_0_lr = 0.6
 theta_1_lr = 0.1
+c = 1e-3
+not_passed_zero = True
+not_passed_one = True
 
 for i in range(iters):
     loss_0, grad_0 = L(theta_0_param, True)
@@ -35,11 +63,27 @@ for i in range(iters):
     # get the gradient
     # Interior Functions
 
-    input_output_values_0.append((theta_0_param[0].item(), theta_0_param[1].item(), loss_0.item()))
-    input_output_values_1.append((theta_1_param[0].item(), theta_1_param[1].item(), loss_1.item()))
-
     theta_0_param = theta_0_param - theta_0_lr * grad_0
     theta_1_param = theta_1_param - theta_1_lr * grad_1
+
+    if (i + 1) % 10 == 0:
+        print(theta_0_lr)
+
+    if not_passed_zero and armijo_goldstein(theta_0_param, c, theta_0_lr, grad_0):
+        not_passed_zero = False
+        print("Theta 0 satisfied")
+    else:
+        theta_0_lr -= c
+    
+    if not_passed_one and armijo_goldstein(theta_1_param, c, theta_1_lr, grad_1):
+        not_passed_one = False
+        print("Theta 1 passed")
+    else:
+        # if fail the test and haven't passed it before
+        theta_1_lr -= c
+
+    input_output_values_0.append((theta_0_param[0].item(), theta_0_param[1].item(), loss_0.item()))
+    input_output_values_1.append((theta_1_param[0].item(), theta_1_param[1].item(), loss_1.item()))
     print(f"0: Iter {i}: loss={loss_0.item():.4f}, θ0={theta_0_param[0].item():.4f}, θ1={theta_0_param[1].item():.4f}")
     print(f"1: Iter {i}: loss={loss_1.item():.4f}, θ0={theta_1_param[0].item():.4f}, θ1={theta_1_param[1].item():.4f}")
     input_output_values_0.append((theta_0_param[0].item(), theta_0_param[1].item(), loss_0.item()))
