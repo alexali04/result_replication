@@ -20,12 +20,14 @@ theta_1.requires_grad = True
 theta_0_param = torch.nn.Parameter(theta_0)
 theta_1_param = torch.nn.Parameter(theta_1)
 
-iters = 30
+iters = 200
 optimizer_0 = SGD([theta_0_param], lr=0.6)
-optimizer_1 = SGD([theta_1_param], lr=0.01)
+optimizer_1 = SGD([theta_1_param], lr=0.1)
 input_output_values_0 = []
 input_output_values_1 = []
 for i in range(iters):
+    optimizer_0.zero_grad()
+    optimizer_1.zero_grad()
     loss_0 = L(theta_0_param)
     loss_1 = L(theta_1_param)
     loss_0.backward()
