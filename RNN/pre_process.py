@@ -50,7 +50,7 @@ class Tokenizer():
         input_indices = [self.encoding_map[char] for char in text_list[:-1]]    # we don't make predictions for the last character since we don't have a next character
         target_indices = [self.encoding_map[char] for char in text_list[1:]]    # we don't use the first character as a target since we don't have a previous character
 
-        return torch.tensor(input_indices), torch.tensor(target_indices)
+        return torch.tensor(input_indices, dtype=torch.long), torch.tensor(target_indices, dtype=torch.long)
     
     def encode(self, text):
         """
@@ -81,28 +81,17 @@ class Tokenizer():
         input_seq = input_idx.unfold(0, seq_len, step_size)
         target_seq = target_idx.unfold(0, seq_len, step_size)
 
-        print(input_seq.shape)
-        print(target_seq.shape)
+        print(f"Input Sequence Shape: {input_seq.shape}")
+        print(f"Target Sequence Shape: {target_seq.shape}")
 
         dataloader = DataLoader(TensorDataset(input_seq, target_seq), batch_size=batch_size, shuffle=True)
 
         return dataloader
 
-        # input_idx = input_idx.view(input_idx.size(0) // seq_len, seq_len)
-        # target_idx = target_idx.view(target_idx.size(0) // seq_len, seq_len)
 
-        # print(input_idx.shape)
-        # print(target_idx.shape)
-
-        # return 
-
-
-        # dataloader = DataLoader(TensorDataset(self.encode(text), self.make_target(text)), batch_size=batch_size, shuffle=True)
-        # return dataloader
-
-
-    def decode(self, indices):
+    def decode(self, indices: torch.Tensor):
         """
         Given tensor of indices, return string
         """
-        return "".join([self.decoding_map[idx] for idx in indices])
+
+        return "".join([self.decoding_map[idx] for idx in indices.tolist()])

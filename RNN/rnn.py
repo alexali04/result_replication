@@ -22,36 +22,56 @@ class RNN(nn.Module):
     def __init__(self, config: RNNConfig):
         super().__init__()
 
+        # for forward pass - aggregate predictions over batch and sequence
+        self.vocab_size = config.vocab_size
+        self.hidden_size = config.hidden_size
+        self.input_size = config.input_size
+        self.layer_count = config.layer_count
+
+        # Embedding
+        self.embedding = nn.Embedding(self.vocab_size, self.input_size)
+
         # Weight Matrices
-        self.embedding = nn.Embedding(config.vocab_size, config.input_size)
-        self.output_proj = nn.Linear(config.hidden_size, config.vocab_size)
-        self.input_proj = nn.Linear(config.input_size, config.hidden_size)
-        self.recurrent_proj = nn.Linear(config.hidden_size, config.hidden_size)
-        self.layers = nn.ModuleList([nn.Linear(config.hidden_size, config.hidden_size) for _ in range(config.layer_count)])
+        self.output_proj = nn.Linear(self.hidden_size, self.vocab_size)
+        self.input_proj = nn.Linear(self.input_size, self.hidden_size)
+        self.recurrent_proj = nn.Linear(self.hidden_size, self.hidden_size)
 
         # Activation Function
         self.activation = nn.Tanh()
 
+        # Trunk
+        non_lin_layers = []
+        for _ in range(config.layer_count):
+            non_lin_layers.append(nn.Linear(self.hidden_size, self.hidden_size))
+            non_lin_layers.append(self.activation)
+
+        self.trunk = nn.Sequential(*non_lin_layers)
+
+
         print(f"Parameters: {self.count_parameters() / 1e6:.2f} M")
     
 
-    def forward(self, x, h_prev):
-        # x: (BSZ, 1)
-        x = self.embedding(x).squeeze(1)
-        print(f"Embedding shape: {x.shape}")
+    def forward(self, x_idx):
+        # x: (BSZ, SEQ_LEN)
 
 
-        h = self.activation(self.input_proj(x) + self.recurrent_proj(h_prev))
-        print(f"Post-input-proj shape: {h.shape}")
+        bsz, seq_len = x_idx.shape
 
-        for layer in self.layers:
-            h = self.activation(layer(h))
-        print(f"Post-layer-proj shape: {h.shape}")
+        y_s = torch.zeros(bsz, seq_len, self.vocab_size)
 
-        y = self.output_proj(h)
-        print(f"Output shape: {y.shape}")
+        h = torch.zeros(bsz, self.hidden_size)
 
-        return y, h
+        # loop over timesteps in sequence
+        for t in range(seq_len):
+            x_idx_t = x_idx[:, t]
+            x = self.embedding(x_idx_t)
+
+            h_t = self.activation(self.input_proj(x) + self.recurrent_proj(h))
+
+            h = self.trunk(h_t)
+            y_s[:, t, :] = self.output_proj(h)
+
+        return y_s
 
 
     def count_parameters(self):
@@ -62,71 +82,85 @@ class RNN(nn.Module):
 class RNNTrainerConfig:
     model: RNN
     train_loader: DataLoader
+    tokenizer: Tokenizer
     optimizer: torch.optim.Optimizer = optim.AdamW
-    learning_rate: float = 1e-5
+    lr: float = 1e-5
     batch_size: int = 32
     hidden_size: int = 256
-    tokenizer: Tokenizer
+    epochs: int = 10
+    
 
 class RNNTrainer():
     def __init__(self, config: RNNTrainerConfig):
         self.model = config.model
         self.train_loader = config.train_loader
         self.model_hidden_size = config.hidden_size
-        self.optimizer = config.optimizer(self.model.parameters(), lr=config.learning_rate)
+        self.optimizer = config.optimizer(self.model.parameters(), lr=config.lr)
         self.bsz = config.batch_size
-
+        self.epochs = config.epochs
+        self.tokenizer = config.tokenizer
 
     def train(self, criterion):
         self.model.train()
 
         # for each batch of sequences
-        for i, batch in tqdm(enumerate(self.train_loader)):
-            x_batch, y_batch = batch
+        for epoch in tqdm(range(self.epochs)):
+            for i, batch in enumerate(self.train_loader):
+                x, y = batch
 
-            # for each timestep across the batch of sequences
-            batch_loss = 0
+                batch_loss = 0
 
-            h = torch.zeros(self.bsz, self.model_hidden_size)
+                y_preds = self.model(x) # predictions: (BSZ * SEQ_LEN, VOCAB_SIZE)
 
-            for j in range(x_batch.shape[1]):
-                x = x_batch[:, j].unsqueeze(1)  # (BSZ, 1)
-                y = y_batch[:, j]  # (BSZ)
 
-                y_pred, h = self.model(x, h) # y_pred: (BSZ, VOCAB_SIZE), h: (BSZ, HIDDEN_SIZE)
-                print(f"\nInput shape: {x.shape}")
-                print(f"Target shape: {y.shape}")
-                print(f"Hidden shape: {h.shape}")
-                print(f"Prediction shape: {y_pred.shape}")
-                loss = criterion(y_pred, y)
+                loss = criterion(y_preds.flatten(0, 1), y.flatten())
                 batch_loss += loss.item()
 
                 loss.backward()
                 self.optimizer.step()
                 self.optimizer.zero_grad()
+
+                with torch.no_grad():
+                    # if i % 50 == 0:
+                    #     print(f"Epoch {epoch}, Batch {i} Loss: {batch_loss}")
+
+                    if i % 200 == 0:
+                        # Decoding
+                        x_sample = x[0, :30]
+                        y_sample = y[0, :30]
+                        y_pred_sample = y_preds[0, :30].argmax(dim=1)
+
+
+                        print("Decoding...")
+                        print(f"Input Text: {self.tokenizer.decode(x_sample).replace(' ', '_')}")
+
+                        print(f"Target Text: {self.tokenizer.decode(y_sample).replace(' ', '_')}")
+
+                        print(f"Prediction Text: {self.tokenizer.decode(y_pred_sample).replace(' ', '_')}")
+                    
+
+
+
+
+                    # # decoding
+                    # print(f"Decoding...")
+                    # idx = 0
+                    # print(f"Input Ids: {x_batch[idx, :30]}")
+                    # print(f"Input Text: {self.tokenizer.decode(x_batch[idx, :30])}")
+
+                    # print(f"Target Ids: {y_batch[idx, :30]}")
+                    # print(f"Target Text: {self.tokenizer.decode(y_batch[idx, :30])}")
+
+                    # with torch.no_grad():
+                    #     for _ in range(30):
+                    #         y_pred, h = self.model(x_batch[idx, j].unsqueeze(1), h)
+                    #         y_pred = y_pred.argmax(dim=1)
+                    #         x_batch[idx, j+1] = y_pred
+                    #         h = h
         
-            if i % 30 == 0:
-                print(f"Batch {i} Loss: {batch_loss}")
 
-                # # decoding
-                # print(f"Decoding...")
-                # idx = 0
-                # print(f"Input Ids: {x_batch[idx, :30]}")
-                # print(f"Input Text: {self.tokenizer.decode(x_batch[idx, :30])}")
-
-                # print(f"Target Ids: {y_batch[idx, :30]}")
-                # print(f"Target Text: {self.tokenizer.decode(y_batch[idx, :30])}")
-
-                # with torch.no_grad():
-                #     for _ in range(30):
-                #         y_pred, h = self.model(x_batch[idx, j].unsqueeze(1), h)
-                #         y_pred = y_pred.argmax(dim=1)
-                #         x_batch[idx, j+1] = y_pred
-                #         h = h
-    
-
-                # print(f"Prediction Ids: {y_pred[idx, :30].argmax(dim=1)}")
-                # print(f"Prediction Text: {self.tokenizer.decode(y_pred[idx, :30].argmax(dim=1))}")
+                    # print(f"Prediction Ids: {y_pred[idx, :30].argmax(dim=1)}")
+                    # print(f"Prediction Text: {self.tokenizer.decode(y_pred[idx, :30].argmax(dim=1))}")
 
 
 
