@@ -14,6 +14,7 @@ class RNNConfig:
     hidden_size: int = 256
     vocab_size: int = 1
     layer_count: int = 1
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 class RNN(nn.Module):
@@ -28,6 +29,7 @@ class RNN(nn.Module):
         self.hidden_size = config.hidden_size
         self.input_size = config.input_size
         self.layer_count = config.layer_count
+        self.device = config.device
 
         # Embedding
         self.embedding = nn.Embedding(self.vocab_size, self.input_size)
@@ -58,9 +60,9 @@ class RNN(nn.Module):
 
         bsz, seq_len = x_idx.shape
 
-        y_s = torch.zeros(bsz, seq_len, self.vocab_size)
+        y_s = torch.zeros(bsz, seq_len, self.vocab_size).to(self.device)
 
-        h = torch.zeros(bsz, self.hidden_size)
+        h = torch.zeros(bsz, self.hidden_size).to(self.device)
 
         # loop over timesteps in sequence
         for t in range(seq_len):
