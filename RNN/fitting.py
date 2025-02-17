@@ -31,6 +31,12 @@ def main(args):
     optimizer = torch.optim.AdamW
     criterion = torch.nn.CrossEntropyLoss()
 
+    use_wandb = False
+
+    if args.wandb:
+        use_wandb = True
+
+
     rnn_trainer_config = RNNTrainerConfig(
         model=model, 
         train_loader=hello_world_loader, 
@@ -39,7 +45,8 @@ def main(args):
         lr=lr, 
         batch_size=BSZ, 
         hidden_size=HIDDEN_DIM, 
-        wandb_project=wandb_proj
+        wandb_project=wandb_proj,
+        use_wandb=use_wandb
     )
 
 
@@ -48,12 +55,10 @@ def main(args):
     rnn_trainer.train(criterion)
 
 
-
-
-
 if __name__ == "__main__":
     args = argparse.ArgumentParser()
     args.add_argument("--train_path", type=str, default="./data/train.csv")
+    args.add_argument("--wandb", type=argparse.BooleanOptionalAction)
     args = args.parse_args()
     main(args)
 

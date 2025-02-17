@@ -90,6 +90,7 @@ class RNNTrainerConfig:
     hidden_size: int = 256
     epochs: int = 10
     wandb_project: str = "rnn"
+    use_wandb: bool = False
     
 
 class RNNTrainer():
@@ -102,14 +103,15 @@ class RNNTrainer():
         self.epochs = config.epochs
         self.tokenizer = config.tokenizer
         self.wandb_project = config.wandb_project
+        self.use_wandb = config.use_wandb
+
 
     def train(self, criterion):
-        wandb.init(project=self.wandb_project)
-
+        if self.use_wandb:
+            wandb.init(project=self.wandb_project)
 
         self.model.train()
 
-        # for each batch of sequences
         for epoch in range(self.epochs):
             print(f"Epoch {epoch}")
             for i, batch in tqdm(enumerate(self.train_loader)):
@@ -117,7 +119,7 @@ class RNNTrainer():
 
                 batch_loss = 0
 
-                y_preds = self.model(x) # predictions: (BSZ * SEQ_LEN, VOCAB_SIZE)
+                y_preds = self.model(x) 
 
 
                 loss = criterion(y_preds.flatten(0, 1), y.flatten())
@@ -128,11 +130,9 @@ class RNNTrainer():
                 self.optimizer.zero_grad()
 
                 with torch.no_grad():
-                    # if i % 50 == 0:
-                    #     print(f"Epoch {epoch}, Batch {i} Loss: {batch_loss}")
-
                     if i % 100 == 0:
-                        wandb.log({"iter": i, "loss": batch_loss})
+                        if self.use_wandb:
+                            wandb.log({"iter": i, "loss": batch_loss})
                         print(f"Epoch {epoch}, Batch {i} Loss: {batch_loss}")
                     
                     if i % 1000 == 0:
@@ -140,12 +140,9 @@ class RNNTrainer():
                         y_sample = y[0, :30]
                         y_pred_sample = y_preds[0, :30].argmax(dim=1)
 
-
                         print("Decoding...")
                         print(f"Input Text: {self.tokenizer.decode(x_sample).replace(' ', '_')}")
-
                         print(f"Target Text: {self.tokenizer.decode(y_sample).replace(' ', '_')}")
-
                         print(f"Prediction Text: {self.tokenizer.decode(y_pred_sample).replace(' ', '_')}")
 
 
