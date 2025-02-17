@@ -3,35 +3,29 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 
-def summarize_data(path):
-    with open(path, "r", encoding="utf-8") as f:
-        text = f.read()
+def summarize_data(path, is_text=False):
+    if not is_text:
+        with open(path, "r", encoding="utf-8") as f:
+            text = f.read()
+    else:
+        text = path
     
-    vocab_size = len(set(text))
-
-    print(f"Dataset Length: {len(text):.2f}M characters")
-    print(f"Vocabulary Size: {vocab_size}")
-    print(f"First 200 characters: {text[:200]}")
-    print(f"Sorted Vocab: {sorted(list(set(text)))}")
-
-    char_to_idx = {char: idx for idx, char in enumerate(sorted(list(set(text))))}
-    idx_to_char = {idx: char for idx, char in enumerate(sorted(list(set(text))))}
-
-    return vocab_size, char_to_idx, idx_to_char
-    
-    
-def summarize_text(text):
     vocab_size = len(set(text))
 
     print(f"Dataset Length: {len(text)} characters")
     print(f"Vocabulary Size: {vocab_size}")
+
+    if not is_text:
+        print(f"First 200 characters: {text[:200]}")
+    
     print(f"Sorted Vocab: {sorted(list(set(text)))}")
 
     char_to_idx = {char: idx for idx, char in enumerate(sorted(list(set(text))))}
     idx_to_char = {idx: char for idx, char in enumerate(sorted(list(set(text))))}
 
     return vocab_size, char_to_idx, idx_to_char
-
+    
+    
 
 
 
@@ -42,42 +36,73 @@ class Tokenizer():
     Given a string, we split it into characters
     each character is mapped to an embedding vector
     """
-    def __init__(self, vocab_size, embedding_dim, encoding_map):
-        self.vocab_size = vocab_size
-        self.embedding_dim = embedding_dim
+    def __init__(self, encoding_map, decoding_map):
         self.encoding_map = encoding_map
+        self.decoding_map = decoding_map
 
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
 
+    def autoregressive_tokenize(self, text):
+        """
+        Given string, return tensor of input tokens and target tokens
+        """
+        text_list = list(text)
+
+        input_indices = [self.encoding_map[char] for char in text_list[:-1]]    # we don't make predictions for the last character since we don't have a next character
+        target_indices = [self.encoding_map[char] for char in text_list[1:]]    # we don't use the first character as a target since we don't have a previous character
+
+        return torch.tensor(input_indices), torch.tensor(target_indices)
+    
     def encode(self, text):
         """
-        convert string to char list
-        conver char list to embedding vectors
+        Given string, return tensor of input tokens
         """
-        text_list = list(text)
-        int_seq = [self.encoding_map[char] for char in text_list[:-1]]
-        return torch.tensor(int_seq)
+        return torch.tensor([self.encoding_map[char] for char in text[:-1]])
 
-    def get_target(self, text):
+    def make_target(self, text):
         """
-        convert string to char list
-        convert char list to int list
+        Given string, return tensor of target tokens
         """
-        text_list = list(text)
-        int_seq = [self.encoding_map[char] for char in text_list[1:]]
-        return torch.tensor(int_seq)
-    
-    def get_encoded_loader_text(self, text, batch_size=32):
-        dataloader = DataLoader(TensorDataset(self.encode(text), self.get_target(text)), batch_size=batch_size, shuffle=True)
+        return torch.tensor([self.encoding_map[char] for char in text[1:]])
+
+    def get_encoded_loader(self, text, batch_size=32, is_text=False, seq_len=200, step_size=20):
+        """
+        Given string or path to file, return DataLoader
+        """
+        if not is_text:
+            with open(text, "r", encoding="utf-8") as f:
+                text = f.read()
+        
+        input_idx, target_idx = self.autoregressive_tokenize(text)
+        # input_idx.shape = (len(text) - 1,)
+        # target_idx.shape = (len(text) - 1,)
+
+        # split into overlapping sequences of length seq_len
+        # not too much overlap - avoid redundancy
+        input_seq = input_idx.unfold(0, seq_len, step_size)
+        target_seq = target_idx.unfold(0, seq_len, step_size)
+
+        print(input_seq.shape)
+        print(target_seq.shape)
+
+        dataloader = DataLoader(TensorDataset(input_seq, target_seq), batch_size=batch_size, shuffle=True)
+
         return dataloader
 
+        # input_idx = input_idx.view(input_idx.size(0) // seq_len, seq_len)
+        # target_idx = target_idx.view(target_idx.size(0) // seq_len, seq_len)
 
-    def get_encoded_loader(self, path, batch_size=32):
-        """
-        Construct DataLoader from file
-        """
-        with open(path, "r", encoding="utf-8") as f:
-            text = f.read()
+        # print(input_idx.shape)
+        # print(target_idx.shape)
 
-        dataloader = DataLoader(TensorDataset(self.encode(text), self.get_target(text)), batch_size=batch_size, shuffle=True)
-        return dataloader
+        # return 
+
+
+        # dataloader = DataLoader(TensorDataset(self.encode(text), self.make_target(text)), batch_size=batch_size, shuffle=True)
+        # return dataloader
+
+
+    def decode(self, indices):
+        """
+        Given tensor of indices, return string
+        """
+        return "".join([self.decoding_map[idx] for idx in indices])

@@ -3,8 +3,9 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from typing import Optional, Callable
+from tqdm import tqdm
 from dataclasses import dataclass
-
+from pre_process import Tokenizer
 
 @dataclass
 class RNNConfig:
@@ -35,10 +36,20 @@ class RNN(nn.Module):
     
 
     def forward(self, x, h_prev):
+        # x: (BSZ, 1)
+        x = self.embedding(x).squeeze(1)
+        print(f"Embedding shape: {x.shape}")
+
+
         h = self.activation(self.input_proj(x) + self.recurrent_proj(h_prev))
+        print(f"Post-input-proj shape: {h.shape}")
+
         for layer in self.layers:
             h = self.activation(layer(h))
+        print(f"Post-layer-proj shape: {h.shape}")
+
         y = self.output_proj(h)
+        print(f"Output shape: {y.shape}")
 
         return y, h
 
@@ -55,7 +66,7 @@ class RNNTrainerConfig:
     learning_rate: float = 1e-5
     batch_size: int = 32
     hidden_size: int = 256
-
+    tokenizer: Tokenizer
 
 class RNNTrainer():
     def __init__(self, config: RNNTrainerConfig):
@@ -69,29 +80,54 @@ class RNNTrainer():
     def train(self, criterion):
         self.model.train()
 
-        # each batch should be a sequence (x, y) where x is the embedding of the previous character and y is the embedding of the next character
-        for i, batch in enumerate(self.train_loader):
+        # for each batch of sequences
+        for i, batch in tqdm(enumerate(self.train_loader)):
+            x_batch, y_batch = batch
+
+            # for each timestep across the batch of sequences
             batch_loss = 0
-            x, y = batch
+
             h = torch.zeros(self.bsz, self.model_hidden_size)
 
-            # i believe i need to loop through the batch here? 
-            # if each batch represents a single sequence, i need to loop through the batch
-            # if we're batch training over different sequences, then we don't need to loop through the batch
+            for j in range(x_batch.shape[1]):
+                x = x_batch[:, j].unsqueeze(1)  # (BSZ, 1)
+                y = y_batch[:, j]  # (BSZ)
 
+                y_pred, h = self.model(x, h) # y_pred: (BSZ, VOCAB_SIZE), h: (BSZ, HIDDEN_SIZE)
+                print(f"\nInput shape: {x.shape}")
+                print(f"Target shape: {y.shape}")
+                print(f"Hidden shape: {h.shape}")
+                print(f"Prediction shape: {y_pred.shape}")
+                loss = criterion(y_pred, y)
+                batch_loss += loss.item()
 
+                loss.backward()
+                self.optimizer.step()
+                self.optimizer.zero_grad()
+        
+            if i % 30 == 0:
+                print(f"Batch {i} Loss: {batch_loss}")
 
-            y_pred, h = self.model(x, h)
-            print(f"Input shape: {x.shape}")
-            print(f"Target shape: {y.shape}")
-            print(f"Hidden shape: {h.shape}")
-            print(f"Prediction shape: {y_pred.shape}")
-            loss = criterion(y_pred, y)
-            loss.backward()
-            self.optimizer.step()
-            self.optimizer.zero_grad()
-            batch_loss += loss.item()
-            print(f"Batch {i} Loss: {batch_loss}")
+                # # decoding
+                # print(f"Decoding...")
+                # idx = 0
+                # print(f"Input Ids: {x_batch[idx, :30]}")
+                # print(f"Input Text: {self.tokenizer.decode(x_batch[idx, :30])}")
+
+                # print(f"Target Ids: {y_batch[idx, :30]}")
+                # print(f"Target Text: {self.tokenizer.decode(y_batch[idx, :30])}")
+
+                # with torch.no_grad():
+                #     for _ in range(30):
+                #         y_pred, h = self.model(x_batch[idx, j].unsqueeze(1), h)
+                #         y_pred = y_pred.argmax(dim=1)
+                #         x_batch[idx, j+1] = y_pred
+                #         h = h
+    
+
+                # print(f"Prediction Ids: {y_pred[idx, :30].argmax(dim=1)}")
+                # print(f"Prediction Text: {self.tokenizer.decode(y_pred[idx, :30].argmax(dim=1))}")
+
 
 
     def evaluate(self, criterion, eval_function: Optional[Callable] = None):

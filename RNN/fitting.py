@@ -1,37 +1,49 @@
 import torch
 from rnn import RNN, RNNTrainer, RNNConfig, RNNTrainerConfig
-from pre_process import summarize_data, summarize_text, Tokenizer
+from pre_process import summarize_data, Tokenizer
 
-# process data
-"""
-curl -L -o ~/personal_proj/result_replication/RNN/data/the-bards-best-a-character-modeling-dataset.zip\
-  https://www.kaggle.com/api/v1/datasets/download/thedevastator/the-bards-best-a-character-modeling-dataset
-
-  unzip it
-"""
 
 # constant
 BSZ = 32
 EMBD_DIM = 128
 HIDDEN_DIM = 256
 LAYER_COUNT = 2
+SEQ_LEN = 20
 
 # Testing
 
-text = "".join("hello world" for _ in range(100))
+text = "".join("hello world" for _ in range(500))
 
-vocab_size, encoding_map, decoding_map = summarize_text(text)
+vocab_size, encoding_map, decoding_map = summarize_data(text, is_text=True)
 
-tokenizer = Tokenizer(vocab_size=vocab_size, embedding_dim=EMBD_DIM, encoding_map=encoding_map)
-embeddings = tokenizer.encode(text)
-targets = tokenizer.get_target(text)
+tokenizer = Tokenizer(encoding_map=encoding_map, decoding_map=decoding_map)
 
-print(embeddings.shape)
-print(targets.shape)
+hello_world_loader = tokenizer.get_encoded_loader(text, batch_size=BSZ, is_text=True, seq_len=SEQ_LEN, step_size=10)
+
+# should be (BSZ, SEQ_LEN)
+x, y = next(iter(hello_world_loader))
+
+rnn_config = RNNConfig(input_size=EMBD_DIM, hidden_size=HIDDEN_DIM, vocab_size=vocab_size, layer_count=LAYER_COUNT)
+rnn = RNN(rnn_config)
+
+optimizer = torch.optim.AdamW
+criterion = torch.nn.CrossEntropyLoss()
+
+rnn_trainer_config = RNNTrainerConfig(rnn, hello_world_loader, optimizer)
+rnn_trainer = RNNTrainer(rnn_trainer_config)
+
+rnn_trainer.train(criterion)
 
 
-hello_world_loader = tokenizer.get_encoded_loader_text(text, batch_size=BSZ)
+exit()
 
+# x, y = next(iter(hello_world_loader))
+
+# print(x.shape) # should be 32, 1
+# print(y.shape) # should be 32, 1
+
+
+# exit()
 
 rnn_config = RNNConfig(input_size=EMBD_DIM, hidden_size=HIDDEN_DIM, output_size=vocab_size, layer_count=LAYER_COUNT)
 rnn = RNN(rnn_config)
