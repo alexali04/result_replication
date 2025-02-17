@@ -1,23 +1,21 @@
 import torch
 from rnn import RNN, RNNTrainer, RNNConfig, RNNTrainerConfig
 from pre_process import summarize_data, Tokenizer
-import argparse
-
-
-# constant
-BSZ = 16
-EMBD_DIM = 256
-HIDDEN_DIM = 512
-LAYER_COUNT = 3
-SEQ_LEN = 40
-lr=1e-4
-wandb_proj = "rnn"
-
+from parser import get_training_parser
 
 # try on small shakespeare dataset
 
 def main(args):
+    BSZ = args.batch_size
+    HIDDEN_DIM = args.hidden_size
+    LAYER_COUNT = args.layer_count
+    SEQ_LEN = args.seq_len
+    EMBD_DIM = args.embd_dim
+
     train_path = args.train_path
+    lr = args.lr
+    wandb_proj = args.wandb_proj
+
 
     vocab_size, encoding_map, decoding_map = summarize_data(path=train_path, is_text=False)
 
@@ -36,7 +34,6 @@ def main(args):
     if args.wandb:
         use_wandb = True
 
-
     rnn_trainer_config = RNNTrainerConfig(
         model=model, 
         train_loader=hello_world_loader, 
@@ -51,15 +48,12 @@ def main(args):
 
 
     rnn_trainer = RNNTrainer(rnn_trainer_config)
-
     rnn_trainer.train(criterion)
 
 
 if __name__ == "__main__":
-    args = argparse.ArgumentParser()
-    args.add_argument("--train_path", type=str, default="./data/train.csv")
-    args.add_argument("--wandb", type=argparse.BooleanOptionalAction)
-    args = args.parse_args()
+    parser = get_training_parser()
+    args = parser.parse_args()
     main(args)
 
 
