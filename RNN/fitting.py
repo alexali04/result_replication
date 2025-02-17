@@ -4,12 +4,14 @@ from pre_process import summarize_data, Tokenizer
 
 
 # constant
-BSZ = 32
-EMBD_DIM = 128
-HIDDEN_DIM = 256
-LAYER_COUNT = 2
-SEQ_LEN = 20
+BSZ = 16
+EMBD_DIM = 256
+HIDDEN_DIM = 512
+LAYER_COUNT = 3
+SEQ_LEN = 40
 lr=1e-4
+wandb_proj = "rnn"
+
 
 # try on small shakespeare dataset
 
@@ -27,7 +29,18 @@ model = RNN(rnn_config)
 optimizer = torch.optim.AdamW
 criterion = torch.nn.CrossEntropyLoss()
 
-rnn_trainer_config = RNNTrainerConfig(model=model, train_loader=hello_world_loader, optimizer=optimizer, tokenizer=tokenizer, lr=lr, batch_size=BSZ, hidden_size=HIDDEN_DIM)
+rnn_trainer_config = RNNTrainerConfig(
+    model=model, 
+    train_loader=hello_world_loader, 
+    optimizer=optimizer, 
+    tokenizer=tokenizer, 
+    lr=lr, 
+    batch_size=BSZ, 
+    hidden_size=HIDDEN_DIM, 
+    wandb_project=wandb_proj
+)
+
+
 rnn_trainer = RNNTrainer(rnn_trainer_config)
 
 rnn_trainer.train(criterion)

@@ -4,6 +4,7 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 from typing import Optional, Callable
 from tqdm import tqdm
+import wandb
 from dataclasses import dataclass
 from pre_process import Tokenizer
 
@@ -88,6 +89,7 @@ class RNNTrainerConfig:
     batch_size: int = 32
     hidden_size: int = 256
     epochs: int = 10
+    wandb_project: str = "rnn"
     
 
 class RNNTrainer():
@@ -99,13 +101,18 @@ class RNNTrainer():
         self.bsz = config.batch_size
         self.epochs = config.epochs
         self.tokenizer = config.tokenizer
+        self.wandb_project = config.wandb_project
 
     def train(self, criterion):
+        wandb.init(project=self.wandb_project)
+
+
         self.model.train()
 
         # for each batch of sequences
-        for epoch in tqdm(range(self.epochs)):
-            for i, batch in enumerate(self.train_loader):
+        for epoch in range(self.epochs):
+            print(f"Epoch {epoch}")
+            for i, batch in tqdm(enumerate(self.train_loader)):
                 x, y = batch
 
                 batch_loss = 0
@@ -124,8 +131,11 @@ class RNNTrainer():
                     # if i % 50 == 0:
                     #     print(f"Epoch {epoch}, Batch {i} Loss: {batch_loss}")
 
-                    if i % 200 == 0:
-                        # Decoding
+                    if i % 100 == 0:
+                        wandb.log({"iter": i, "loss": batch_loss})
+                        print(f"Epoch {epoch}, Batch {i} Loss: {batch_loss}")
+                    
+                    if i % 1000 == 0:
                         x_sample = x[0, :30]
                         y_sample = y[0, :30]
                         y_pred_sample = y_preds[0, :30].argmax(dim=1)
@@ -137,30 +147,6 @@ class RNNTrainer():
                         print(f"Target Text: {self.tokenizer.decode(y_sample).replace(' ', '_')}")
 
                         print(f"Prediction Text: {self.tokenizer.decode(y_pred_sample).replace(' ', '_')}")
-                    
-
-
-
-
-                    # # decoding
-                    # print(f"Decoding...")
-                    # idx = 0
-                    # print(f"Input Ids: {x_batch[idx, :30]}")
-                    # print(f"Input Text: {self.tokenizer.decode(x_batch[idx, :30])}")
-
-                    # print(f"Target Ids: {y_batch[idx, :30]}")
-                    # print(f"Target Text: {self.tokenizer.decode(y_batch[idx, :30])}")
-
-                    # with torch.no_grad():
-                    #     for _ in range(30):
-                    #         y_pred, h = self.model(x_batch[idx, j].unsqueeze(1), h)
-                    #         y_pred = y_pred.argmax(dim=1)
-                    #         x_batch[idx, j+1] = y_pred
-                    #         h = h
-        
-
-                    # print(f"Prediction Ids: {y_pred[idx, :30].argmax(dim=1)}")
-                    # print(f"Prediction Text: {self.tokenizer.decode(y_pred[idx, :30].argmax(dim=1))}")
 
 
 
