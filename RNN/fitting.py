@@ -16,6 +16,8 @@ def main(args):
     lr = args.lr
     wandb_proj = args.wandb_proj
 
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
     vocab_size, encoding_map, decoding_map = summarize_data(path=train_path, is_text=False)
 
@@ -43,7 +45,8 @@ def main(args):
         batch_size=BSZ, 
         hidden_size=HIDDEN_DIM, 
         wandb_project=wandb_proj,
-        use_wandb=use_wandb
+        use_wandb=use_wandb,
+        device=device
     )
 
 

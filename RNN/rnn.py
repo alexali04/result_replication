@@ -91,10 +91,12 @@ class RNNTrainerConfig:
     epochs: int = 10
     wandb_project: str = "rnn"
     use_wandb: bool = False
+    device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
 
 class RNNTrainer():
     def __init__(self, config: RNNTrainerConfig):
+        self.device = config.device
         self.model = config.model
         self.train_loader = config.train_loader
         self.model_hidden_size = config.hidden_size
@@ -104,6 +106,8 @@ class RNNTrainer():
         self.tokenizer = config.tokenizer
         self.wandb_project = config.wandb_project
         self.use_wandb = config.use_wandb
+
+        self.model.to(self.device)
 
 
     def train(self, criterion):
@@ -116,6 +120,7 @@ class RNNTrainer():
             print(f"Epoch {epoch}")
             for i, batch in tqdm(enumerate(self.train_loader)):
                 x, y = batch
+                x, y = x.to(self.device), y.to(self.device)
 
                 batch_loss = 0
 
@@ -136,9 +141,9 @@ class RNNTrainer():
                         print(f"Epoch {epoch}, Batch {i} Loss: {batch_loss}")
                     
                     if i % 1000 == 0:
-                        x_sample = x[0, :30]
-                        y_sample = y[0, :30]
-                        y_pred_sample = y_preds[0, :30].argmax(dim=1)
+                        x_sample = x[0, :30].cpu().numpy()
+                        y_sample = y[0, :30].cpu().numpy()
+                        y_pred_sample = y_preds[0, :30].argmax(dim=1).cpu().numpy()
 
                         print("Decoding...")
                         print(f"Input Text: {self.tokenizer.decode(x_sample).replace(' ', '_')}")
