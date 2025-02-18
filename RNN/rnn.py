@@ -7,6 +7,7 @@ from tqdm import tqdm
 import wandb
 from dataclasses import dataclass
 from pre_process import Tokenizer
+import argparse
 
 @dataclass
 class RNNConfig:
@@ -24,29 +25,30 @@ class RNN(nn.Module):
     def __init__(self, config: RNNConfig):
         super().__init__()
 
-        # for forward pass - aggregate predictions over batch and sequence
         self.vocab_size = config.vocab_size
         self.hidden_size = config.hidden_size
         self.input_size = config.input_size
         self.layer_count = config.layer_count
         self.device = config.device
 
-        # Embedding
         self.embedding = nn.Embedding(self.vocab_size, self.input_size)
 
-        # Weight Matrices
         self.output_proj = nn.Linear(self.hidden_size, self.vocab_size)
         self.input_proj = nn.Linear(self.input_size, self.hidden_size)
         self.recurrent_proj = nn.Linear(self.hidden_size, self.hidden_size)
 
-        # Activation Function
         self.activation = nn.Tanh()
+
+        self.layer_norm = nn.LayerNorm(self.hidden_size)
+
+
 
         # Trunk
         non_lin_layers = []
         for _ in range(config.layer_count):
             non_lin_layers.append(nn.Linear(self.hidden_size, self.hidden_size))
             non_lin_layers.append(self.activation)
+            non_lin_layers.append(self.layer_norm)
 
         self.trunk = nn.Sequential(*non_lin_layers)
 
@@ -70,6 +72,7 @@ class RNN(nn.Module):
             x = self.embedding(x_idx_t)
 
             h_t = self.activation(self.input_proj(x) + self.recurrent_proj(h))
+            h_t = self.layer_norm(h_t)
 
             h = self.trunk(h_t)
             y_s[:, t, :] = self.output_proj(h)
@@ -94,6 +97,8 @@ class RNNTrainerConfig:
     wandb_project: str = "rnn"
     use_wandb: bool = False
     device: torch.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    param_count: int = 0
+    args: argparse.Namespace = None
     
 
 class RNNTrainer():
@@ -108,13 +113,16 @@ class RNNTrainer():
         self.tokenizer = config.tokenizer
         self.wandb_project = config.wandb_project
         self.use_wandb = config.use_wandb
-
+        self.args = config.args
+        self.param_count = config.param_count
         self.model.to(self.device)
 
 
     def train(self, criterion):
         if self.use_wandb:
             wandb.init(project=self.wandb_project)
+            wandb.config.update(self.args.__dict__)
+            wandb.config["param_count"] = self.param_count
 
         self.model.train()
 
@@ -128,29 +136,48 @@ class RNNTrainer():
 
                 y_preds = self.model(x) 
 
-
                 loss = criterion(y_preds.flatten(0, 1), y.flatten())
                 batch_loss += loss.item()
 
                 loss.backward()
                 self.optimizer.step()
+
+                # gradient norm - needed for RNN
+                grads = [
+                    param.grad.detach().flatten()
+                    for param in self.model.parameters()
+                    if param.grad is not None
+                ]
+
+                grad_norm = torch.cat(grads).norm()
+
+        
+
                 self.optimizer.zero_grad()
 
                 with torch.no_grad():
                     if i % 100 == 0:
                         if self.use_wandb:
                             wandb.log({"iter": i, "loss": batch_loss})
+                            wandb.log({"grad_norm": grad_norm.item()})
                         print(f"Epoch {epoch}, Batch {i} Loss: {batch_loss}")
                     
-                    if i % 1000 == 0:
-                        x_sample = x[0, :30].cpu().numpy()
-                        y_sample = y[0, :30].cpu().numpy()
-                        y_pred_sample = y_preds[0, :30].argmax(dim=1).cpu().numpy()
+                    if i % 500 == 0:
+                        print("\n")
+                        print("-" * 10)
+                        for k in range(1):
+                            y_sample = y[k, :50].cpu().numpy()
+                            y_pred_sample = y_preds[k, :50].argmax(dim=1).cpu().numpy()
 
-                        print("Decoding...")
-                        print(f"Input Text: {self.tokenizer.decode(x_sample).replace(' ', '_')}")
-                        print(f"Target Text: {self.tokenizer.decode(y_sample).replace(' ', '_')}")
-                        print(f"Prediction Text: {self.tokenizer.decode(y_pred_sample).replace(' ', '_')}")
+                            decoded_y = self.tokenizer.decode(y_sample).replace(' ', '_').replace('\n', '/')
+                            decoded_y_pred = self.tokenizer.decode(y_pred_sample).replace(' ', '_').replace('\n', '/')
+
+                            print(f"Target Text: {decoded_y}")
+                            print(f"Prediction Text: {decoded_y_pred}")
+                        
+                        print("-" * 10)
+                        print("\n")
+
 
 
 

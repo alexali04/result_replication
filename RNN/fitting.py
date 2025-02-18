@@ -13,6 +13,7 @@ def main(args):
     EMBD_DIM = args.embd_dim
 
     train_path = args.train_path
+    print(f"Train Path: {train_path}")
     lr = args.lr
     wandb_proj = args.wandb_proj
 
@@ -27,6 +28,7 @@ def main(args):
 
     rnn_config = RNNConfig(input_size=EMBD_DIM, hidden_size=HIDDEN_DIM, vocab_size=vocab_size, layer_count=LAYER_COUNT)
     model = RNN(rnn_config)
+    param_count = model.count_parameters()
 
     optimizer = torch.optim.AdamW
     criterion = torch.nn.CrossEntropyLoss()
@@ -46,7 +48,9 @@ def main(args):
         hidden_size=HIDDEN_DIM, 
         wandb_project=wandb_proj,
         use_wandb=use_wandb,
-        device=device
+        device=device,
+        param_count=param_count,
+        args=args
     )
 
 

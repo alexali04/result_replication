@@ -12,3 +12,10 @@ curl -L -o ~/personal_proj/result_replication/RNN/data/the-bards-best-a-characte
 
 unzip ~/personal_proj/result_replication/RNN/data/the-bards-best-a-character-modeling-dataset.zip
 ```
+
+# RNN Commands
+
+```shell
+python fitting.py --train_path=./data/train.csv
+ --wandb
+```

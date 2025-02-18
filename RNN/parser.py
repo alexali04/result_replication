@@ -5,7 +5,7 @@ def get_training_parser():
     parser = argparse.ArgumentParser(description="Training Parser for RNN")
 
     parser.add_argument("--train_path", type=str, default="./data/train.csv")
-    parser.add_argument("--wandb", type=argparse.BooleanOptionalAction)
+    parser.add_argument("--wandb", action=argparse.BooleanOptionalAction)
     parser.add_argument("--wandb_proj", type=str, default="rnn")
     parser.add_argument("--batch_size", type=int, default=16)
     parser.add_argument("--hidden_size", type=int, default=256)
