@@ -11,8 +11,10 @@ def main(args):
     LAYER_COUNT = args.layer_count
     SEQ_LEN = args.seq_len
     EMBD_DIM = args.embd_dim
+    epochs = args.epochs
 
     train_path = args.train_path
+    
     print(f"Train Path: {train_path}")
     lr = args.lr
     wandb_proj = args.wandb_proj
@@ -41,11 +43,12 @@ def main(args):
     rnn_trainer_config = RNNTrainerConfig(
         model=model, 
         train_loader=hello_world_loader, 
-        optimizer=optimizer, 
         tokenizer=tokenizer, 
+        optimizer=optimizer, 
         lr=lr, 
         batch_size=BSZ, 
         hidden_size=HIDDEN_DIM, 
+        epochs=epochs,
         wandb_project=wandb_proj,
         use_wandb=use_wandb,
         device=device,
@@ -56,6 +59,15 @@ def main(args):
 
     rnn_trainer = RNNTrainer(rnn_trainer_config)
     rnn_trainer.train(criterion)
+
+    if args.save:   
+        torch.save(model.state_dict(), f"models/{args.name}.pt")
+
+
+    print("\nEvaluating...\n")
+    test_path = args.train_path.replace("train", "test")
+    test_loader = tokenizer.get_encoded_loader(test_path, batch_size=BSZ, is_text=False, seq_len=SEQ_LEN, step_size=10)
+    rnn_trainer.evaluate(criterion, test_loader)
 
 
 if __name__ == "__main__":

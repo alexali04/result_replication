@@ -8,6 +8,7 @@ import wandb
 from dataclasses import dataclass
 from pre_process import Tokenizer
 import argparse
+import time
 
 @dataclass
 class RNNConfig:
@@ -39,7 +40,7 @@ class RNN(nn.Module):
 
         self.activation = nn.Tanh()
 
-        self.layer_norm = nn.LayerNorm(self.hidden_size)
+        # self.layer_norm = nn.LayerNorm(self.hidden_size)
 
 
 
@@ -48,7 +49,7 @@ class RNN(nn.Module):
         for _ in range(config.layer_count):
             non_lin_layers.append(nn.Linear(self.hidden_size, self.hidden_size))
             non_lin_layers.append(self.activation)
-            non_lin_layers.append(self.layer_norm)
+            #non_lin_layers.append(self.layer_norm)
 
         self.trunk = nn.Sequential(*non_lin_layers)
 
@@ -72,7 +73,7 @@ class RNN(nn.Module):
             x = self.embedding(x_idx_t)
 
             h_t = self.activation(self.input_proj(x) + self.recurrent_proj(h))
-            h_t = self.layer_norm(h_t)
+            # h_t = self.layer_norm(h_t)
 
             h = self.trunk(h_t)
             y_s[:, t, :] = self.output_proj(h)
@@ -126,8 +127,13 @@ class RNNTrainer():
 
         self.model.train()
 
+        
         for epoch in range(self.epochs):
             print(f"Epoch {epoch}")
+
+            if epoch == 0:
+                tic = time.time()    
+
             for i, batch in tqdm(enumerate(self.train_loader)):
                 x, y = batch
                 x, y = x.to(self.device), y.to(self.device)
@@ -150,9 +156,6 @@ class RNNTrainer():
                 ]
 
                 grad_norm = torch.cat(grads).norm()
-
-        
-
                 self.optimizer.zero_grad()
 
                 with torch.no_grad():
@@ -178,26 +181,46 @@ class RNNTrainer():
                         print("-" * 10)
                         print("\n")
 
+            if epoch == 0:
+                toc = time.time()
+                print(f"Time taken: {toc - tic:.2f} seconds")
+                if self.use_wandb:
+                    wandb.summary["time_taken"] = toc - tic
 
 
-
-    def evaluate(self, criterion, eval_function: Optional[Callable] = None):
+    def evaluate(self, criterion, test_loader: DataLoader):
         self.model.eval()
 
         total_loss = 0
 
         with torch.no_grad():
-            for batch in self.val_loader:
+            for batch in test_loader:
                 x, y = batch
-                h = torch.zeros(self.bsz, self.model_hidden_size)
-                y_pred, h = self.model(x, h)
-                loss = criterion(y_pred, y)
+                x, y = x.to(self.device), y.to(self.device)
+                
+                y_preds = self.model(x)
+                loss = criterion(y_preds.flatten(0, 1), y.flatten())
                 total_loss += loss.item()
+        
+        x, y = next(iter(test_loader))
+        x, y = x.to(self.device), y.to(self.device)
 
-                if eval_function is not None:
-                    eval_function(y_pred, y)
+        y_preds = self.model(x)
 
-        return total_loss / len(self.val_loader)
+        for i in range(5):
+            print("\n")
+            print("-" * 10)
+            decoded_y = self.tokenizer.decode(y[i, :50].cpu().numpy()).replace(' ', '_').replace('\n', '/')
+            decoded_y_pred = self.tokenizer.decode(y_preds[i, :50].argmax(dim=1).cpu().numpy()).replace(' ', '_').replace('\n', '/')
+
+            print(f"Target Text: {decoded_y}")
+            print(f"Prediction Text: {decoded_y_pred}")
+            print("-" * 10)
+            print("\n")
+
+
+
+        return total_loss / len(test_loader)
     
 
 

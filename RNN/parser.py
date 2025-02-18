@@ -14,6 +14,8 @@ def get_training_parser():
     parser.add_argument("--seq_len", type=int, default=40)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--epochs", type=int, default=10)
+    parser.add_argument("--name", type=str, default="model")
+    parser.add_argument("--save", action=argparse.BooleanOptionalAction)
     
 
     return parser
