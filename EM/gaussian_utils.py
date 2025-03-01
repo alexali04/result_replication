@@ -1,6 +1,33 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+class MVG():
+    def __init__(self, cov, mean):
+        self.cov = cov
+        self.mean = mean
+    
+    def compute_density(self, x, batch=True):
+        return compute_mvg_density(mu=self.mean, Sigma=self.cov, x=x, batch=batch)
+    
+    def sample(self, size):
+        rng = np.random.default_rng()
+        x_1 = rng.multivariate_normal(mean=self.mean, cov=self.cov, size=size)
+        return x_1
+
+    def plot_density(self, x):
+        density_plot(mu=self.mean, Sigma=self.cov, x=x)
+    
+    def get_points_and_densities(self, x):
+        """get points"""
+        densities = compute_mvg_density(mu=self.mean, Sigma=self.cov, x=x)
+
+        densities = np.expand_dims(densities, axis=1)
+
+        points = np.concat((x, densities), axis=1)
+        return points
+
+    
 def compute_mvg_density(mu, Sigma, x, batch: bool = True):
     """
     p(x; mu, Sigma) = 1 / {(2 pi)^{k / 2} (det(Sigma))^{1/2}} * exp((x - mu)^T Sigma^{-1} (x - mu))
@@ -24,10 +51,6 @@ def compute_mvg_density(mu, Sigma, x, batch: bool = True):
 
     return exp / np.sqrt(c * det)
 
-def get_mvg_samples(mu, Sigma, size):
-    rng = np.random.default_rng()
-    x_1 = rng.multivariate_normal(mean=mu, cov=Sigma, size=size)
-    return x_1
 
 def density_plot(mu, Sigma, x):
     densities = compute_mvg_density(mu=mu, Sigma=Sigma, x=x)
@@ -40,7 +63,7 @@ def density_plot(mu, Sigma, x):
     fig = plt.figure()
 
     ax = fig.add_subplot(projection="3d")
-    ax.scatter(points[:, 0], points[:, 1], points[:, 2], marker="o", color="red")
+    ax.scatter(points[:, 0], points[:, 1], points[:, 2], marker="o", cmap="inferno", c=points[:, 2])
 
     ax.set_xlabel('X')
     ax.set_ylabel('Y')
