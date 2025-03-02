@@ -1,0 +1,9 @@
+result_rep_venv
+__pycache__/
+.DS_Store
+wandb/
+models/
+
+data/
+
+images/

@@ -67,11 +67,14 @@ if __name__ == "main":
         optimizer = Adam(model.params())
         dataset = None      # dataset
 
+        total_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
         train_err = train(model, num_epochs=num_epochs, optimizer=optimizer, dataset=dataset)
         test_err = eval()   # eval function
         wandb.log({
             "train_error": train_err,
-            "test_error": test_err
+            "test_error": test_err,
+            "total_params": total_params
         })
 
 

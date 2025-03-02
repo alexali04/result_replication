@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from EM.gaussian_utils import MVG
+from EM.utils import MVG
 
 cov_1 = np.identity(n=2)
 mean_1 = np.array([0, 0])

@@ -66,21 +66,21 @@ for i in range(iters):
     theta_0_param = theta_0_param - theta_0_lr * grad_0
     theta_1_param = theta_1_param - theta_1_lr * grad_1
 
-    if (i + 1) % 10 == 0:
-        print(theta_0_lr)
+    # if (i + 1) % 10 == 0:
+    #     print(theta_0_lr)
 
-    if not_passed_zero and armijo_goldstein(theta_0_param, c, theta_0_lr, grad_0):
-        not_passed_zero = False
-        print("Theta 0 satisfied")
-    else:
-        theta_0_lr -= c
+    # if not_passed_zero and armijo_goldstein(theta_0_param, c, theta_0_lr, grad_0):
+    #     not_passed_zero = False
+    #     print("Theta 0 satisfied")
+    # else:
+    #     theta_0_lr -= c
     
-    if not_passed_one and armijo_goldstein(theta_1_param, c, theta_1_lr, grad_1):
-        not_passed_one = False
-        print("Theta 1 passed")
-    else:
-        # if fail the test and haven't passed it before
-        theta_1_lr -= c
+    # if not_passed_one and armijo_goldstein(theta_1_param, c, theta_1_lr, grad_1):
+    #     not_passed_one = False
+    #     print("Theta 1 passed")
+    # else:
+    #     # if fail the test and haven't passed it before
+    #     theta_1_lr -= c
 
     input_output_values_0.append((theta_0_param[0].item(), theta_0_param[1].item(), loss_0.item()))
     input_output_values_1.append((theta_1_param[0].item(), theta_1_param[1].item(), loss_1.item()))
@@ -110,7 +110,6 @@ y = np.linspace(-1, 3, 100)
 x, y = np.meshgrid(x, y)
 z = L(torch.Tensor([x, y]))
 z = np.minimum(z, 10)
-
 
 
 

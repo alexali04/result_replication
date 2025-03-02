@@ -40,7 +40,7 @@ class RNN(nn.Module):
 
         self.activation = nn.Tanh()
 
-        # self.layer_norm = nn.LayerNorm(self.hidden_size)
+        self.layer_norm = nn.LayerNorm(self.hidden_size)
 
 
 
@@ -49,7 +49,7 @@ class RNN(nn.Module):
         for _ in range(config.layer_count):
             non_lin_layers.append(nn.Linear(self.hidden_size, self.hidden_size))
             non_lin_layers.append(self.activation)
-            #non_lin_layers.append(self.layer_norm)
+            non_lin_layers.append(self.layer_norm)
 
         self.trunk = nn.Sequential(*non_lin_layers)
 

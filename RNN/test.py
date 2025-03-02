@@ -1,6 +1,6 @@
 import torch
-from rnn import RNN, RNNTrainer, RNNConfig, RNNTrainerConfig
-from pre_process import summarize_data, Tokenizer
+from RNN.rnn import RNN, RNNTrainer, RNNConfig, RNNTrainerConfig
+from RNN.pre_process import summarize_data, Tokenizer
 
 
 # constant

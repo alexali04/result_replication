@@ -13,31 +13,32 @@ def L(theta: torch.nn.Parameter):
     """
     return 0.5 * torch.square(torch.square(theta[0]) - theta[1]) + 0.5 * torch.square(theta[0] - 1)
     
-theta_0 = torch.Tensor([[0], [0]])
-theta_1 = torch.Tensor([[0], [0]])
-theta_0.requires_grad = True
-theta_1.requires_grad = True
-theta_0_param = torch.nn.Parameter(theta_0)
-theta_1_param = torch.nn.Parameter(theta_1)
+lr_large = torch.Tensor([[0], [0]])
+lr_small = torch.Tensor([[0], [0]])
+
+lr_large.requires_grad = True
+lr_small.requires_grad = True
+lr_large_param = torch.nn.Parameter(lr_large)
+lr_small_param = torch.nn.Parameter(lr_small)
 
 iters = 200
-optimizer_0 = SGD([theta_0_param], lr=0.6)
-optimizer_1 = SGD([theta_1_param], lr=0.1)
+optimizer_0 = SGD([lr_large_param], lr=0.6)
+optimizer_1 = SGD([lr_small_param], lr=0.1)
 input_output_values_0 = []
 input_output_values_1 = []
 for i in range(iters):
     optimizer_0.zero_grad()
     optimizer_1.zero_grad()
-    loss_0 = L(theta_0_param)
-    loss_1 = L(theta_1_param)
+    loss_0 = L(lr_large_param)
+    loss_1 = L(lr_small_param)
     loss_0.backward()
     loss_1.backward()
     optimizer_0.step()
     optimizer_1.step()
-    print(f"0: Iter {i}: loss={loss_0.item():.4f}, θ0={theta_0_param[0].item():.4f}, θ1={theta_0_param[1].item():.4f}")
-    print(f"1: Iter {i}: loss={loss_1.item():.4f}, θ0={theta_1_param[0].item():.4f}, θ1={theta_1_param[1].item():.4f}")
-    input_output_values_0.append((theta_0_param[0].item(), theta_0_param[1].item(), loss_0.item()))
-    input_output_values_1.append((theta_1_param[0].item(), theta_1_param[1].item(), loss_1.item()))
+    print(f"0: Iter {i}: loss={loss_0.item():.4f}, θ0={lr_large_param[0].item():.4f}, θ1={lr_large_param[1].item():.4f}")
+    print(f"1: Iter {i}: loss={loss_1.item():.4f}, θ0={lr_small_param[0].item():.4f}, θ1={lr_small_param[1].item():.4f}")
+    input_output_values_0.append((lr_large_param[0].item(), lr_large_param[1].item(), loss_0.item()))
+    input_output_values_1.append((lr_small_param[0].item(), lr_small_param[1].item(), loss_1.item()))
 
 x_np = np.linspace(0, 2, 100)
 y_np = np.linspace(-0.5, 3, 100)
