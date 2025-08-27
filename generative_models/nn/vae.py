@@ -22,7 +22,7 @@ class Encoder(nn.Module):
         self.to_hidden = nn.Linear(self.inp_dim, self.hidden_dim)
         self.hidden_layers = nn.ModuleList([nn.Linear(self.hidden_dim, self.hidden_dim) for _ in range(depth) - 1])
         self.mu = nn.Linear(self.hidden_dim, self.hidden_dim)
-        self.sigma = nn.Linear(self.hidden_dim, self.hidden_dim)
+        self.log_sigma = nn.Linear(self.hidden_dim, self.hidden_dim)
 
         self.activation = Activation_Dict[activation]()
         
@@ -34,9 +34,9 @@ class Encoder(nn.Module):
             x_hidden = self.activation(x_hidden)
         
         mu = self.mu(x_hidden)
-        sigma = self.sigma(x_hidden)
+        log_sigma = self.log_sigma(x_hidden)
 
-        return mu, sigma
+        return mu, log_sigma
 
 
 class Decoder(nn.Module):
@@ -56,6 +56,7 @@ class Decoder(nn.Module):
         self.layers = nn.ModuleList([nn.Linear(self.latent_dim, self.latent_dim) for _ in range(depth) - 1])
         self.to_x = nn.Linear(self.latent_dim, self.out_dim)
         self.activation = Activation_Dict[activation]()
+
         
     def forward(self, x):
         for layer in self.layers:
@@ -74,18 +75,26 @@ class VAE(nn.Module):
         latent_dim,
         depth,
         activation,
+        device,
     ):
         super().__init__()
         self.encoder = Encoder(inp_dim, latent_dim, depth, activation)
         self.decoder = Decoder(latent_dim, inp_dim, depth, activation)
+        self.device = device
+    
+    def reparameterize(self, mu, sigma):
+        epsilon = torch.randn_like(mu).to(self.device)
+        return mu + sigma * epsilon
 
     def forward(self, x):
-        mu, sigma = self.encoder(x)
-        epsilon = torch.randn_like(mu)
+        mu, log_sigma = self.encoder(x)
+        sigma = torch.exp(log_sigma)
 
-        x_latent = mu + sigma * epsilon
+        x_latent = self.reparameterize(mu, sigma)
 
         x_hat = self.decoder(x_latent)
 
         return x_hat
     
+
+# loss function - includes analytical KL + reconstruction loss
