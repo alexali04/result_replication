@@ -1,0 +1,1 @@
+Implementing generative models in an attempt to understand diffusion / ELBO. 

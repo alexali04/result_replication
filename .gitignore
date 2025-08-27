@@ -1,4 +1,6 @@
 result_rep_venv
+gen_model
+setup.sh
 __pycache__/
 .DS_Store
 wandb/
